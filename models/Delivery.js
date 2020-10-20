@@ -5,27 +5,34 @@ const DeliveryDetails = mongoose.Schema({
     type: String,
     required: true,
   },
-  driverID: {
-    type: String,
-  },
   mode: {
     type: String,
-    enum: ["car", "bike", "minvan"],
+    enum: ["Motorcycle", "Car", "Mini Van"],
     required: true,
   },
   status: {
     type: String,
-    enum: ["pending", "paid", "cancelled", "processing", "delivered"],
-    default: "pending",
+    enum: ["Pending", "Paid", "Cancelled", "Processing", "Delivered"],
+    default: "Pending",
+  },
+  distance: {
+    type: String,
+    required: true,
+  },
+  price: {
+    type: String,
+    required: true,
   },
   type: {
     type: String,
-    enum: ["custom", "instant"],
-    default: "instant",
+    enum: ["Custom", "Instant"],
+    default: "Instant",
   },
-  altPhone: {
+  pickUpNumber: {
     type: String,
-    required: true,
+  },
+  dropOffNumber: {
+    type: String,
   },
   dateCreated: {
     type: Date,
@@ -33,25 +40,23 @@ const DeliveryDetails = mongoose.Schema({
   },
   pickDate: {
     type: Date,
+    default: Date.now,
   },
-  description: {
+  note: {
     type: String,
   },
-  curLoc: {
+  now: {
     type: Map,
-    of: String,
   },
-  pickLoc: {
+  from: {
     type: Map,
-    of: String,
   },
-  dropLoc: {
+  to: {
     type: Map,
-    of: String,
   },
   review: {
     type: String,
-    enum: ["very poor", "poor", "good", "great", "excellent"],
+    enum: ["Very poor", "Poor", "Good", "Great", "Excellent"],
   },
   remark: {
     type: String,
@@ -61,13 +66,17 @@ const DeliveryDetails = mongoose.Schema({
   },
   payment: {
     type: String,
-    enum: ["online", "transfer", "cash"],
-    required: true,
+    enum: ["Online", "Transfer", "Cash"],
+    default: "Cash",
   },
   payer: {
     type: String,
-    enum: ["sender", "receiver"],
+    enum: ["Sender", "Receiver"],
     required: true,
+  },
+  track: {
+    type: Array,
+    default: [{ action: "Created", timestamp: Date.now }],
   },
 });
 

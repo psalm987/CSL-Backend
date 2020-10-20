@@ -15,6 +15,7 @@ const NotificationsDetails = mongoose.Schema({
   },
   type: {
     type: String,
+    enum: ["success", "warning", "error"],
   },
   read: {
     type: Boolean,
@@ -23,6 +24,10 @@ const NotificationsDetails = mongoose.Schema({
   dateCreated: {
     type: Date,
     default: Date.now,
+  },
+  link: {
+    type: String,
+    enum: ["order", "profile"],
   },
 });
 

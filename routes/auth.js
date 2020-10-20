@@ -6,6 +6,9 @@ const jwt = require("jsonwebtoken");
 const auth = require("../middleware/auth");
 
 const User = require("../models/User");
+const ClientDetails = require("../models/ClientDetails");
+const DriverDetails = require("../models/DriverDetails");
+const Delivery = require("../models/Delivery");
 
 /**
  * @route       POST api/auth
@@ -23,6 +26,7 @@ router.post(
     // Check for input errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log("Invalid Credentials error", errors);
       res.status(400).json(errors.array());
       return;
     }
@@ -31,8 +35,9 @@ router.post(
     const { email, password } = req.body;
     try {
       // check if user already exists
-      let User = await User.findOne({ email });
+      let user = await User.findOne({ email });
       if (!user) {
+        console.log("Invalid Credentials");
         res.status(400).json({ msg: "Invalid Credentials" });
         return;
       }
@@ -40,9 +45,24 @@ router.post(
       // check if passwords match
       const isMatch = await bcrypt.compare(password, user.password);
       if (!isMatch) {
+        console.log("Invalid Credentials match");
         res.status(400).json({ msg: "Invalid Credentials" });
         return;
       }
+      let details = {};
+      switch (user.role) {
+        case "client":
+          details = await ClientDetails.findOne({ userID: user.id });
+          break;
+        default:
+          break;
+      }
+      const returnUser = {
+        name: user.name,
+        phone: user.phone,
+        email: user.email,
+        birthday: details.birthday,
+      };
 
       // respond with payload
       const payload = {
@@ -51,18 +71,17 @@ router.post(
           role: user.role,
         },
       };
-      jwt.sign(
-        payload,
-        process.env.JWT_SECRET,
-        {
-          expiresIn: "1d",
-        },
-        (err, token) => {
-          if (err) throw err;
-          res.status(200).json({ token, role });
-          return;
-        }
-      );
+      jwt.sign(payload, process.env.JWT_SECRET, (err, token) => {
+        if (err) throw err;
+        res.status(200).json({
+          token,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          user: returnUser,
+        });
+        return;
+      });
     } catch (err) {
       console.log(err);
       res.status(500).json({ msg: "Server Error" });
@@ -92,7 +111,15 @@ router.get("/", auth, async (req, res) => {
       default:
         break;
     }
-    res.status(200).json({ user, details, history });
+    const { role, name, email } = user;
+    res
+      .status(200)
+      .json({
+        role,
+        name,
+        email,
+        user: { birthday: details.birthday, phone: user.phone },
+      });
     return;
   } catch (err) {
     console.log(err);

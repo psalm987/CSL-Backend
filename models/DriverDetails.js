@@ -10,7 +10,6 @@ const DriverDetails = mongoose.Schema({
   },
   curLoc: {
     type: Map,
-    of: String,
   },
   valid: {
     type: Boolean,

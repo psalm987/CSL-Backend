@@ -8,13 +8,14 @@ const UserSchema = mongoose.Schema({
   email: {
     type: String,
     required: true,
+    lowercase: true,
     unique: true,
   },
   phone: {
     type: String,
     required: true,
   },
-  passwordHash: {
+  password: {
     type: String,
     requred: true,
   },
@@ -23,6 +24,10 @@ const UserSchema = mongoose.Schema({
     required: true,
     enum: ["client", "driver", "admin", "superAdmin"],
     default: "client",
+  },
+  birthday: {
+    type: Date,
+    required: true,
   },
   dateCreated: {
     type: Date,

@@ -21,7 +21,7 @@ router.post(
   [
     check("name", "User Name is required").not().isEmpty(),
     check("email", "Include valid Email").isEmail(),
-    check("phone", "Include a valid phone number").not().isEmpty(),
+    check("phone", "Include a valid phone number").isMobilePhone("en-NG"),
     check("password", "Include password with 6 or more characters").isLength({
       min: 6,
     }),
@@ -33,22 +33,21 @@ router.post(
       res.status(400).json(errors.array());
       return;
     }
+    // destructure inputs
+    const { name, email, phone, password, role, birthday } = req.body;
     if (role && !["client", "driver"].includes(role)) {
       res.status(400).json({ msg: "Invalid role" });
     }
-
-    // destructure inputs
-    const { name, email, phone, password, role } = req.body;
     try {
       // check if user already exists
-      let User = await User.findOne({ email });
+      let user = await User.findOne({ email });
       if (user) {
         res.status(400).json({ msg: "User already exists" });
         return;
       }
 
       // save user to database
-      const user = new User({
+      user = new User({
         name,
         email,
         phone,
@@ -62,23 +61,25 @@ router.post(
 
       // handle various roles
       user = await User.findOne({ email });
-      let client;
+      let details;
       switch (user.role) {
         case "client":
-          client = new ClientDetails({
+          details = new ClientDetails({
             userID: user.id,
+            birthday,
           });
           break;
         case "driver":
-          client = new DriverDetails({
+          details = new DriverDetails({
             userID: user.id,
           });
           break;
         default:
           break;
       }
-      await client.save();
+      await details.save();
 
+      const returnUser = { name, phone, email, birthday };
       // respond with payload
       const payload = {
         user: {
@@ -86,18 +87,13 @@ router.post(
           role: user.role,
         },
       };
-      jwt.sign(
-        payload,
-        process.env.JWT_SECRET,
-        {
-          expiresIn: "1d",
-        },
-        (err, token) => {
-          if (err) throw err;
-          res.status(200).json({ token, role });
-          return;
-        }
-      );
+      jwt.sign(payload, process.env.JWT_SECRET, (err, token) => {
+        if (err) throw err;
+        res
+          .status(200)
+          .json({ token, email: user.email, name, role, user: returnUser });
+      });
+      return;
     } catch (err) {
       console.log(err);
       res.status(500).json({ msg: "Server Error" });
