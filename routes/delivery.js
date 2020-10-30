@@ -5,11 +5,12 @@ const auth = require("../middleware/auth");
 const dist = require("../middleware/distance");
 
 const Delivery = require("../models/Delivery");
-const Notifications = require("../models/Notifications");
+
 const User = require("../models/User");
-const concurrently = require("concurrently");
-const { update } = require("../models/Delivery");
 const DriverDetails = require("../models/DriverDetails");
+
+const createNotification = require("../middleware/createNotification");
+const { route } = require("./admin");
 
 /**
  * @route       POST api/delivery
@@ -30,11 +31,8 @@ router.post("/", auth, async (req, res) => {
     payer,
     payment,
     note,
+    schedule,
   } = req.body;
-  if (!["client", "admin", "superAdmin"].includes(req.user.role)) {
-    res.status(400).json({ msg: "Not authorised" });
-    return;
-  }
 
   try {
     let DeliveryInfo = {};
@@ -48,19 +46,19 @@ router.post("/", auth, async (req, res) => {
     if (payer) DeliveryInfo.payer = payer;
     if (payment) DeliveryInfo.payment = payment;
     if (note) DeliveryInfo.note = note;
-    DeliveryInfo.track = [{ action: "Created", timestamp: Date.now }];
+    if (schedule) DeliveryInfo.schedule = schedule;
     DeliveryInfo.clientID = req.user.id;
 
     const delivery = new Delivery(DeliveryInfo);
     const deliveryID = await delivery.save();
-    const notification = new Notifications({
+    await createNotification({
       userID: req.user.id,
       title: "Delivery request Successful",
       details: `You made a delivery request by ${mode}. Our service agents will process your order in a few minutes.`,
-      type: "delivery",
+      type: "success",
+      link: "order",
       payloadID: deliveryID,
     });
-    await notification.save();
     res.status(200).json({ msg: "Delivery request successful" });
     return;
   } catch (err) {
@@ -89,64 +87,6 @@ router.post("/check", async (req, res) => {
 });
 
 /**
- * @route       POST api/delivery/accept/:id
- * @description Accept a new Delivery
- * @access      Private (Driver)
- * */
-
-router.post(
-  "/accept/:id",
-  [auth, check("id", "Delivery ID is required").exists()],
-  async (req, res) => {
-    // Check for input errors
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      res.status(400).json(errors.array());
-      return;
-    }
-    if (req.user.id !== "driver") {
-      res.status(400).json({ msg: "Not Authorised" });
-      return;
-    }
-
-    // destructure inputs
-    const { id } = req.params;
-
-    try {
-      const delivery = await Delivery.findById(id);
-      const driver = await User.findById(req.user.id);
-      if (!delivery.driverID) {
-        deliveryID = await delivery.update({
-          status: "processing",
-          track: [
-            ...deliveryID.track,
-            { action: "Assigned", timestamp: Date.now },
-          ],
-        });
-        res.status(200).json({ msg: "Delivery accepted!" });
-        const notification = new Notifications({
-          userID: delivery.clientID,
-          title: "Rider selected",
-          details: `Your delivery request was just accepted by ${driver.name}`,
-          type: "success",
-          link: "order",
-          payloadID: deliveryID,
-        });
-        notification.save();
-        return;
-      } else {
-        res.status(400).json({ msg: "Delivery already accepted" });
-        return;
-      }
-    } catch (err) {
-      console.log(err);
-      res.status(500).json({ msg: "Server Error" });
-      return;
-    }
-  }
-);
-
-/**
  * @route       GET api/delivery
  * @description Get all Deliveries
  * @access      Private (Client & Admins)
@@ -154,7 +94,20 @@ router.post(
 
 router.get("/", auth, async (req, res) => {
   try {
-    const deliveries = await Delivery.find({ clientID: req.user.id });
+    const deliveries = await (async () => {
+      switch (req.user.role) {
+        case "client":
+          return await Delivery.find({ clientID: req.user.id }).sort(
+            "-dateCreated"
+          );
+        case "driver":
+          return await Delivery.find({ driverID: req.user.id }).sort(
+            "-dateCreated"
+          );
+        default:
+          return await Delivery.find().sort("-dateCreated");
+      }
+    })();
     res.status(200).json(deliveries);
     return;
   } catch (err) {
@@ -166,7 +119,7 @@ router.get("/", auth, async (req, res) => {
 
 /**
  * @route       POST api/delivery/cancel/:id
- * @description Calculate Delivery Details
+ * @description Cancel delivery
  * @access      Private
  * */
 router.post("/cancel/:id", auth, async (req, res) => {
@@ -176,11 +129,33 @@ router.post("/cancel/:id", auth, async (req, res) => {
       res.status(400).json({ msg: "Not authorized" });
       return;
     }
+    if (!["Pending", "Processing"].includes(delivery.status)) {
+      res.status(400).json({ msg: "Delivery cannot be cancelled" });
+      return;
+    }
     await delivery.updateOne({
       status: "Cancelled",
       track: [...update.track, { action: "Cancelled", timestamp: Date.now }],
     });
+    const client = await User.findById(delivery.clientID);
+    await createNotification({
+      userID: req.user.id,
+      title: "Delivery Cancelled",
+      details: `Your delivery has been cancelled successfully.`,
+      type: "success",
+      link: "order",
+      payload: delivery._id,
+    });
+    await createNotification({
+      userID: delivery.driverID,
+      title: "Delivery Cancelled",
+      details: `A delivery for ${client.name} has been cancelled.`,
+      type: "success",
+      link: "order",
+      payload: delivery._id,
+    });
     res.status(200).json(delivery);
+    return;
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: "Server Error" });
@@ -189,40 +164,44 @@ router.post("/cancel/:id", auth, async (req, res) => {
 });
 
 /**
- * @route       POST api/delivery/assign/:id
- * @description Assign  Delivery to driver
- * @access      Public
+ * @route       POST api/delivery/review/:id
+ * @description Review a delivery
+ * @access      Private
  * */
 
-router.post("/assign/:id", auth, async (res, req) => {
+router.post("/review/:id", auth, async (req, res) => {
   try {
-    if (req.user.role !== "admin") {
+    const delivery = await Delivery.findById(req.params.id);
+    if (delivery.clientID !== req.user.id) {
       res.status(400).json({ msg: "Not authorized" });
       return;
     }
-    const driverUser = await User.findById(req.body.driverID);
-    const driverDetails = await DriverDetails.findOne({
-      userID: req.body.driverID,
-    });
-    const delivery = await Delivery.findById(req.params.id);
+    if (!["Cancelled", "Delivered"].includes(delivery.status)) {
+      res.status(400).json({ msg: "Delivery cannot be reviewed" });
+      return;
+    }
     await delivery.updateOne({
-      driver: {
-        name: driverUser.name,
-        phone: driverUser.phone,
-        image: driverDetails.photoUrl,
-        id: req.body.driverID,
-      },
-      track: [...delivery.track, { action: "Assigned", timestamp: Date.now }],
+      track: [...update.track, { action: "Cancelled", timestamp: Date.now }],
     });
-    const notification = new Notifications({
+    const client = await User.findById(delivery.clientID);
+    await createNotification({
       userID: req.user.id,
-      title: "Assigned successfully",
-      details: `${driverUser.name} has been assigned to your order. The driver would pick up your package shortly`,
+      title: "Delivery Cancelled",
+      details: `Your delivery has been cancelled successfully.`,
       type: "success",
       link: "order",
-      payloadID: deliveryID,
+      payload: delivery._id,
     });
-    await notification.save();
+    await createNotification({
+      userID: delivery.driverID,
+      title: "Delivery Cancelled",
+      details: `A delivery for ${client.name} has been cancelled.`,
+      type: "success",
+      link: "order",
+      payload: delivery._id,
+    });
+    res.status(200).json(delivery);
+    return;
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: "Server Error" });

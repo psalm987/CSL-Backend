@@ -4,9 +4,15 @@ const DriverDetails = mongoose.Schema({
   userID: {
     type: String,
     required: true,
+    unique: true,
+  },
+  staffID: {
+    type: String,
+    required: true,
   },
   photoUrl: {
     type: String,
+    required: true,
   },
   curLoc: {
     type: Map,

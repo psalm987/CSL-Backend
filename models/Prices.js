@@ -1,15 +1,20 @@
 const mongoose = require("mongoose");
 
 const PricesDetails = mongoose.Schema({
-  amount: {
-    type: String,
-    required: true,
-  },
-  distance: {
-    type: String,
+  priceList: {
+    type: Array,
     required: true,
   },
   mode: {
+    type: String,
+    enum: ["Motorcycle", "Car", "Mini Van"],
+    required: true,
+  },
+  dateUpdated: {
+    type: Date,
+    default: Date.now,
+  },
+  updatedBy: {
     type: String,
     required: true,
   },

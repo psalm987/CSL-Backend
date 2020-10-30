@@ -5,6 +5,12 @@ const DeliveryDetails = mongoose.Schema({
     type: String,
     required: true,
   },
+  driverID: {
+    type: String,
+  },
+  driver: {
+    type: Map,
+  },
   mode: {
     type: String,
     enum: ["Motorcycle", "Car", "Mini Van"],
@@ -12,7 +18,7 @@ const DeliveryDetails = mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ["Pending", "Paid", "Cancelled", "Processing", "Delivered"],
+    enum: ["Pending", "Cancelled", "Processing", "Delivered"],
     default: "Pending",
   },
   distance: {
@@ -38,15 +44,8 @@ const DeliveryDetails = mongoose.Schema({
     type: Date,
     default: Date.now,
   },
-  pickDate: {
-    type: Date,
-    default: Date.now,
-  },
   note: {
     type: String,
-  },
-  now: {
-    type: Map,
   },
   from: {
     type: Map,
@@ -62,7 +61,7 @@ const DeliveryDetails = mongoose.Schema({
     type: String,
   },
   driverComment: {
-    type: String,
+    type: Array,
   },
   payment: {
     type: String,
@@ -76,7 +75,13 @@ const DeliveryDetails = mongoose.Schema({
   },
   track: {
     type: Array,
-    default: [{ action: "Created", timestamp: Date.now }],
+    default: [{ action: "Created", timestamp: Date.now() }],
+  },
+  schedule: {
+    type: Map,
+  },
+  paymentTransactions: {
+    type: Array,
   },
 });
 

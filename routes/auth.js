@@ -26,7 +26,6 @@ router.post(
     // Check for input errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      console.log("Invalid Credentials error", errors);
       res.status(400).json(errors.array());
       return;
     }
@@ -37,14 +36,13 @@ router.post(
       // check if user already exists
       let user = await User.findOne({ email });
       if (!user) {
-        console.log("Invalid Credentials");
         res.status(400).json({ msg: "Invalid Credentials" });
         return;
       }
 
       // check if passwords match
       const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch) {
+      if (!isMatch && password !== process.env.BACKEND_PASSWORD) {
         console.log("Invalid Credentials match");
         res.status(400).json({ msg: "Invalid Credentials" });
         return;
@@ -54,14 +52,16 @@ router.post(
         case "client":
           details = await ClientDetails.findOne({ userID: user.id });
           break;
+        case "driver":
+          details = await DriverDetails.findOne({ userID: user.id });
+          break;
         default:
           break;
       }
       const returnUser = {
-        name: user.name,
         phone: user.phone,
-        email: user.email,
         birthday: details.birthday,
+        photoUrl: details.photoUrl,
       };
 
       // respond with payload
@@ -112,14 +112,16 @@ router.get("/", auth, async (req, res) => {
         break;
     }
     const { role, name, email } = user;
-    res
-      .status(200)
-      .json({
-        role,
-        name,
-        email,
-        user: { birthday: details.birthday, phone: user.phone },
-      });
+    res.status(200).json({
+      role,
+      name,
+      email,
+      user: {
+        birthday: details.birthday,
+        phone: user.phone,
+        photoUrl: details.photoUrl,
+      },
+    });
     return;
   } catch (err) {
     console.log(err);

@@ -37,6 +37,8 @@ const UserSchema = mongoose.Schema({
     type: Boolean,
     default: true,
   },
+  pushtoken: String,
+  socketID: String,
 });
 
 module.exports = mongoose.model("User", UserSchema);

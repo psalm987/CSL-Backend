@@ -9,6 +9,8 @@ const User = require("../models/User");
 const ClientDetails = require("../models/ClientDetails");
 const DriverDetails = require("../models/DriverDetails");
 const Delivery = require("../models/Delivery");
+const createNotification = require("../middleware/createNotification");
+const Ads = require("../models/Ads");
 
 /**
  * @route       POST api/users
@@ -34,10 +36,8 @@ router.post(
       return;
     }
     // destructure inputs
-    const { name, email, phone, password, role, birthday } = req.body;
-    if (role && !["client", "driver"].includes(role)) {
-      res.status(400).json({ msg: "Invalid role" });
-    }
+    const { name, email, phone, password, birthday } = req.body;
+
     try {
       // check if user already exists
       let user = await User.findOne({ email });
@@ -52,7 +52,6 @@ router.post(
         email,
         phone,
         password,
-        role,
       });
       // encrypt password
       const salt = await bcrypt.genSalt(10);
@@ -61,22 +60,11 @@ router.post(
 
       // handle various roles
       user = await User.findOne({ email });
-      let details;
-      switch (user.role) {
-        case "client":
-          details = new ClientDetails({
-            userID: user.id,
-            birthday,
-          });
-          break;
-        case "driver":
-          details = new DriverDetails({
-            userID: user.id,
-          });
-          break;
-        default:
-          break;
-      }
+      const details = new ClientDetails({
+        userID: user.id,
+        birthday,
+      });
+
       await details.save();
 
       const returnUser = { name, phone, email, birthday };
@@ -87,8 +75,15 @@ router.post(
           role: user.role,
         },
       };
-      jwt.sign(payload, process.env.JWT_SECRET, (err, token) => {
+      jwt.sign(payload, process.env.JWT_SECRET, async (err, token) => {
         if (err) throw err;
+        await createNotification({
+          userID: user.id,
+          title: "New Account",
+          details: `Welcome ${user.name}, your account has been created successfully`,
+          type: "success",
+          link: "account",
+        });
         res
           .status(200)
           .json({ token, email: user.email, name, role, user: returnUser });
@@ -139,6 +134,24 @@ router.get("/", auth, async (req, res) => {
       res.status(200).json({ user, details, history });
       return;
     }
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ msg: "Server Error" });
+    return;
+  }
+});
+
+/**
+ * @route       GET api/users/ads
+ * @description Retrieve all Ads
+ * @access      Public
+ * */
+
+router.get("/ads", async (req, res) => {
+  try {
+    const ads = await Ads.find({ valid: true }).sort("-dateUploaded");
+    res.status(200).json({ ads });
+    return;
   } catch (err) {
     console.log(err);
     res.status(500).json({ msg: "Server Error" });
