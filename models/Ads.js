@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 
 const Ads = mongoose.Schema({
-  name: {
+  title: {
     type: String,
     required: true,
   },
@@ -18,7 +18,6 @@ const Ads = mongoose.Schema({
   },
   uploadedBy: {
     type: String,
-    required: true,
   },
   expires: {
     type: Date,

@@ -45,9 +45,9 @@ const calcPrice = async (distance, mode) => {
   const list = await Prices.find({ mode }).sort({ dateUpdated: -1 });
   const priceList = list[0].priceList.sort((a, b) => a.distance - b.distance);
   console.log(priceList);
-  const array = priceList.filter((price) => price.distance <= distance);
+  const array = priceList.filter((price) => price.distance >= distance);
   console.log(array);
-  const price = array[array.length - 1].price;
+  const price = array[0].price;
   console.log(price);
   return price;
 };

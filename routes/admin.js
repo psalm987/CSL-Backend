@@ -259,6 +259,10 @@ router.post("/delivery/assign", auth, async (req, res) => {
 
 router.post("/price", auth, async (req, res) => {
   try {
+    if (req.user.role !== "admin") {
+      res.status(400).json({ msg: "No authorisation" });
+      return;
+    }
     const { mode, priceList } = req.body;
     const prices = new Prices({ mode, priceList, updatedBy: req.user.id });
     await prices.save();
@@ -285,8 +289,40 @@ router.post("/price", auth, async (req, res) => {
 router.post("/ads", auth, async (req, res) => {
   try {
     const { name, image, link, expires } = req.body;
-    const ad = new Ads({ name, image, link, expires, uploadedBy: req.user.id });
+    const ad = new Ads({
+      title,
+      image,
+      link,
+      expires,
+      uploadedBy: req.user.id,
+    });
     await ad.save();
+    createNotification({
+      userID: req.user.id,
+      title: "Advert Update",
+      details: `You have succcessfully updated the mobile app advert, all clients will be able to view the ads now.`,
+      type: "success",
+    });
+    socket && socket.broadcast.emit("ads");
+    res.status(200).json({ msg: "Update successful" });
+    return;
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ msg: "Server Error" });
+    return;
+  }
+});
+
+/**
+ * @route       POST api/admin/multi/ads
+ * @description Create a multiple ads
+ * @access      Private
+ * */
+
+router.post("/multi/ads", auth, async (req, res) => {
+  try {
+    const { adlist } = req.body;
+    await Ads.create(adlist);
     createNotification({
       userID: req.user.id,
       title: "Advert Update",
