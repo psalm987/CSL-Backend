@@ -29,11 +29,6 @@ const DeliveryDetails = mongoose.Schema({
     type: String,
     required: true,
   },
-  type: {
-    type: String,
-    enum: ["Custom", "Instant"],
-    default: "Instant",
-  },
   pickUpNumber: {
     type: String,
   },
@@ -55,10 +50,6 @@ const DeliveryDetails = mongoose.Schema({
   },
   review: {
     type: String,
-    enum: ["Very poor", "Poor", "Good", "Great", "Excellent"],
-  },
-  remark: {
-    type: String,
   },
   driverComment: {
     type: Array,
@@ -75,7 +66,7 @@ const DeliveryDetails = mongoose.Schema({
   },
   track: {
     type: Array,
-    default: [{ action: "Created", timestamp: Date.now() }],
+    default: [{ action: "Created", timestamp: new Date().toISOString() }],
   },
   schedule: {
     type: Map,

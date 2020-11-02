@@ -50,14 +50,14 @@ router.post("/", auth, async (req, res) => {
     DeliveryInfo.clientID = req.user.id;
 
     const delivery = new Delivery(DeliveryInfo);
-    const deliveryID = await delivery.save();
+    await delivery.save();
     await createNotification({
       userID: req.user.id,
       title: "Delivery request Successful",
       details: `You made a delivery request by ${mode}. Our service agents will process your order in a few minutes.`,
       type: "success",
       link: "order",
-      payloadID: deliveryID,
+      payload: delivery._id,
     });
     res.status(200).json({ msg: "Delivery request successful" });
     return;
@@ -80,7 +80,7 @@ router.post("/check", async (req, res) => {
     res.status(200).json({ from, to, mode, distance, duration, price });
     return;
   } catch (error) {
-    console.error(error);
+    console.log(error);
     res.status(500).json({ msg: "Server Error" });
     return;
   }
@@ -89,7 +89,7 @@ router.post("/check", async (req, res) => {
 /**
  * @route       GET api/delivery
  * @description Get all Deliveries
- * @access      Private (Client & Admins)
+ * @access      Private (Client, Drivers & Admins)
  * */
 
 router.get("/", auth, async (req, res) => {
@@ -97,13 +97,15 @@ router.get("/", auth, async (req, res) => {
     const deliveries = await (async () => {
       switch (req.user.role) {
         case "client":
-          return await Delivery.find({ clientID: req.user.id }).sort(
-            "-dateCreated"
-          );
+          return await Delivery.find({ clientID: req.user.id })
+            .select("driver status price dateCreated from to schedule mode")
+            .sort("-dateCreated")
+            .limit(100);
         case "driver":
-          return await Delivery.find({ driverID: req.user.id }).sort(
-            "-dateCreated"
-          );
+          return await Delivery.find({ driverID: req.user.id })
+            .select("driver status price dateCreated from to schedule mode")
+            .sort("-dateCreated")
+            .limit(100);
         default:
           return await Delivery.find().sort("-dateCreated");
       }
@@ -111,7 +113,7 @@ router.get("/", auth, async (req, res) => {
     res.status(200).json(deliveries);
     return;
   } catch (err) {
-    console.error(err);
+    console.log(err);
     res.status(500).json({ msg: "Server Error" });
     return;
   }
@@ -135,7 +137,10 @@ router.post("/cancel/:id", auth, async (req, res) => {
     }
     await delivery.updateOne({
       status: "Cancelled",
-      track: [...update.track, { action: "Cancelled", timestamp: Date.now }],
+      track: [
+        ...update.track,
+        { action: "Cancelled", timestamp: new Date().toISOString() },
+      ],
     });
     const client = await User.findById(delivery.clientID);
     await createNotification({
@@ -157,7 +162,37 @@ router.post("/cancel/:id", auth, async (req, res) => {
     res.status(200).json(delivery);
     return;
   } catch (err) {
-    console.error(err);
+    console.log(err);
+    res.status(500).json({ msg: "Server Error" });
+    return;
+  }
+});
+
+/**
+ * @route       GET api/delivery/:id
+ * @description Retrieve a delivery
+ * @access      Private
+ * */
+
+router.get("/:id", auth, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const delivery = await Delivery.findById(id);
+    if (!delivery) {
+      res.status(400).json({ msg: "Delivery does not exist" });
+      return;
+    }
+    if (
+      (req.user.role === "client" && delivery.clientID !== req.user.id) ||
+      (req.user.role === "driver" && delivery.driverID !== req.user.id)
+    ) {
+      res.status(400).json({ msg: "Not Authorised" });
+      return;
+    }
+    res.status(200).json({ delivery });
+    return;
+  } catch (err) {
+    console.log(err);
     res.status(500).json({ msg: "Server Error" });
     return;
   }
@@ -181,13 +216,16 @@ router.post("/review/:id", auth, async (req, res) => {
       return;
     }
     await delivery.updateOne({
-      track: [...update.track, { action: "Cancelled", timestamp: Date.now }],
+      track: [
+        ...update.track,
+        { action: "Reviewed", timestamp: new Date().toISOString() },
+      ],
     });
     const client = await User.findById(delivery.clientID);
     await createNotification({
       userID: req.user.id,
-      title: "Delivery Cancelled",
-      details: `Your delivery has been cancelled successfully.`,
+      title: "Review successful",
+      details: `Your review.`,
       type: "success",
       link: "order",
       payload: delivery._id,
@@ -203,7 +241,7 @@ router.post("/review/:id", auth, async (req, res) => {
     res.status(200).json(delivery);
     return;
   } catch (err) {
-    console.error(err);
+    console.log(err);
     res.status(500).json({ msg: "Server Error" });
     return;
   }

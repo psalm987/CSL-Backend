@@ -278,7 +278,6 @@ router.post("/", async (req, res) => {
       email,
       phone,
       birthday,
-      password,
       role: "driver",
     };
     let user = await User.findOne({ email });
@@ -374,7 +373,10 @@ router.post("/delivery/received", auth, async (req, res) => {
     DeliveryObj.status = "Pending";
     DeliveryObj.track = [
       ...delivery.track,
-      { action: "Picked up by a dispatch rider", timestamp: Date.now() },
+      {
+        action: "Picked up by a dispatch rider",
+        timestamp: new Date().toISOString(),
+      },
     ];
     delivery.updateOne(DeliveryObj);
     await createNotification({
@@ -432,7 +434,7 @@ router.post("/delivery/delivered", auth, async (req, res) => {
     DeliveryObj.status = "Pending";
     DeliveryObj.track = [
       ...delivery.track,
-      { action: "Delivered", timestamp: Date.now() },
+      { action: "Delivered", timestamp: new Date().toISOString() },
     ];
     delivery.updateOne(DeliveryObj);
     await createNotification({

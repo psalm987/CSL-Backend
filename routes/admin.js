@@ -12,7 +12,6 @@ const Delivery = require("../models/Delivery");
 
 const createNotification = require("../middleware/createNotification");
 const Prices = require("../models/Prices");
-const { type } = require("os");
 const Ads = require("../models/Ads");
 
 const SECRET = process.env.ADMIN_SECRET;
@@ -27,7 +26,11 @@ router.post("/", async (req, res) => {
   try {
     const { name, email, password, phone, birthday, secret } = req.body;
     if (!secret || secret !== SECRET) {
-      res.status(200).json({ msg: "No authorisation" });
+      res.status(400).json({ msg: "No authorisation" });
+      return;
+    }
+    if (await User.findOne({ email })) {
+      res.status(400).json({ msg: "User already exists" });
       return;
     }
     const user = new User({
@@ -51,6 +54,14 @@ router.post("/", async (req, res) => {
     const returnUser = { name, phone, email, birthday };
     jwt.sign(payload, process.env.JWT_SECRET, (err, token) => {
       if (err) throw err;
+      createNotification({
+        userId: user.id,
+        title: "Account Created",
+        details:
+          "Your account has been created successfully, you can now login as an administrator",
+        type: "success",
+        link: "profile",
+      });
       res.status(200).json({
         token,
         email: user.email,
@@ -59,6 +70,7 @@ router.post("/", async (req, res) => {
         user: returnUser,
       });
     });
+    return;
   } catch (err) {
     console.log(err);
     res.status(500).json({ msg: "Server Error" });
@@ -121,7 +133,7 @@ router.post("/drivers/approve/:id", auth, async (req, res) => {
 });
 
 /**
- * @route       POST api/admin/drivers/approve/:id
+ * @route       POST api/admin/drivers/ban/:id
  * @description Ban a driver
  * @access      Private
  * */
@@ -212,17 +224,18 @@ router.post("/delivery/assign", auth, async (req, res) => {
     DeliveryObj.driverID = driverID;
     DeliveryObj.driver = {
       id: driverID,
-      name: driver.name,
-      phone: driver.phone,
-      email: driver.email,
+      name: driverAccount.name,
+      phone: driverAccount.phone,
+      email: driverAccount.email,
+      photoUrl: details.photoUrl,
     };
     DeliveryObj.track = [
-      delivery.track,
+      ...delivery.track,
       {
         action: reassign
           ? "Re-assigned to a dispatch rider"
           : "Assigned to a dispatch rider",
-        timestamp: Date.now,
+        timestamp: new Date().toISOString(),
       },
     ];
     await delivery.updateOne(DeliveryObj);
@@ -235,7 +248,7 @@ router.post("/delivery/assign", auth, async (req, res) => {
       payloadID: delivery._id,
     });
     await createNotification({
-      userID: delivery.clientID,
+      userID: delivery.driverID,
       title: "New Delivery",
       details: `A delivery request was just assigned to you.`,
       type: "success",

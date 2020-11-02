@@ -33,6 +33,7 @@ const NotificationsDetails = mongoose.Schema({
     type: String,
     enum: ["order", "profile"],
   },
+  payload: String,
 });
 
 module.exports = mongoose.model("Notifications", NotificationsDetails);
