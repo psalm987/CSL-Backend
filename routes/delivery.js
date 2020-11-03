@@ -11,6 +11,7 @@ const DriverDetails = require("../models/DriverDetails");
 
 const createNotification = require("../middleware/createNotification");
 const { route } = require("./admin");
+const Reviews = require("../models/Reviews");
 
 /**
  * @route       POST api/delivery
@@ -138,10 +139,17 @@ router.post("/cancel/:id", auth, async (req, res) => {
     await delivery.updateOne({
       status: "Cancelled",
       track: [
-        ...update.track,
+        ...delivery.track,
         { action: "Cancelled", timestamp: new Date().toISOString() },
       ],
     });
+    await new Reviews({
+      driverID: delivery.driverID || "0",
+      clientID: req.user.id,
+      deliveryID: req.params.id,
+      rating: 1,
+      remark: req.body.remark,
+    }).save();
     const client = await User.findById(delivery.clientID);
     await createNotification({
       userID: req.user.id,
@@ -159,7 +167,7 @@ router.post("/cancel/:id", auth, async (req, res) => {
       link: "order",
       payload: delivery._id,
     });
-    res.status(200).json(delivery);
+    res.status(200).json({ msg: "Delivery cancelled" });
     return;
   } catch (err) {
     console.log(err);
