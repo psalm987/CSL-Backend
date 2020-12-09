@@ -406,6 +406,11 @@ router.post("/delivery/assign", auth, async (req, res) => {
       res.status(400).json({ msg: "Set reassign to true" });
       return;
     }
+    if (delivery.driver.toString() === driverID) {
+      console.log("Can't re-assign to same driver");
+      res.status(400).json({ msg: "Can't re-assign to same driver" });
+      return;
+    }
     let DeliveryObj = {};
     DeliveryObj.status = "Processing";
     DeliveryObj.driver = driverID;

@@ -25,7 +25,7 @@ const { getSocket } = require("../config/socket");
 const getPerformance = require("../middleware/getPerformance");
 
 /**
- * @route       GET api/drivers/performacne
+ * @route       GET api/drivers/performance
  * @description Retreive a Driver Performance - Average review
  * @access      Private
  * */
