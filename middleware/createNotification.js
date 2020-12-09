@@ -10,29 +10,37 @@ const createNotification = async ({
   link,
   payload,
 }) => {
+  console.log({
+    userID,
+    title,
+    details,
+    type,
+    link,
+    payload,
+  });
   try {
     const notifications = new Notifications({
-      userID,
+      user: userID,
       title,
       details,
       type,
       link,
       payload,
     });
-    const user = await User.findById(userID);
-    user.pushtoken &&
+    const userObj = await User.findById(userID);
+    userObj.pushtoken &&
       (await Axios.post("https://exp.host/--/api/v2/push/send", {
-        to: user.pushtoken,
+        to: userObj.pushtoken,
         title,
         body: details,
         sound: "default",
         channelId: "default",
       }));
     await notifications.save();
-    if (user.socketID) {
+    if (userObj.socketID) {
       const { io } = getSocket();
-      io.to(user.socketID).emit("NewNotification");
-      console.log("sent to io...", io, " with socket id ", user.socketID);
+      io.to(userObj.socketID).emit("NewNotification");
+      console.log("sent to io...", io.id, " with socket id ", userObj.socketID);
     }
   } catch (err) {
     console.log(err);

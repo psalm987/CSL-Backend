@@ -6,8 +6,6 @@ const jwt = require("jsonwebtoken");
 const auth = require("../middleware/auth");
 
 const User = require("../models/User");
-const ClientDetails = require("../models/ClientDetails");
-const DriverDetails = require("../models/DriverDetails");
 const Delivery = require("../models/Delivery");
 
 /**
@@ -27,6 +25,7 @@ router.post(
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       res.status(400).json(errors.array());
+      console.log(errors);
       return;
     }
 
@@ -47,21 +46,11 @@ router.post(
         res.status(400).json({ msg: "Invalid Credentials" });
         return;
       }
-      let details = {};
-      switch (user.role) {
-        case "client":
-          details = await ClientDetails.findOne({ userID: user.id });
-          break;
-        case "driver":
-          details = await DriverDetails.findOne({ userID: user.id });
-          break;
-        default:
-          break;
-      }
       const returnUser = {
+        id: user._id,
         phone: user.phone,
-        birthday: details.birthday,
-        photoUrl: details.photoUrl,
+        birthday: user.birthday,
+        photoUrl: user.photoUrl,
       };
 
       // respond with payload
@@ -98,28 +87,17 @@ router.post(
 
 router.get("/", auth, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select("-passwordHash");
-    switch (req.user.role) {
-      case "client":
-        details = await ClientDetails.findOne({ userID: req.user.id });
-        history = await Delivery.find({ clientID: req.user.id });
-        break;
-      case "driver":
-        details = await DriverDetails.findOne({ userID: req.user.id });
-        history = await Delivery.find({ driverID: req.user.id });
-        break;
-      default:
-        break;
-    }
+    const user = await User.findById(req.user.id);
     const { role, name, email } = user;
     res.status(200).json({
       role,
       name,
       email,
       user: {
-        birthday: details.birthday,
+        id: req.user.id,
+        birthday: user.birthday,
         phone: user.phone,
-        photoUrl: details.photoUrl,
+        photoUrl: user.photoUrl,
       },
     });
     return;

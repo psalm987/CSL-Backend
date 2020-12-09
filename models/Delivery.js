@@ -1,15 +1,14 @@
 const mongoose = require("mongoose");
 
 const DeliveryDetails = mongoose.Schema({
-  clientID: {
-    type: String,
+  client: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
     required: true,
   },
-  driverID: {
-    type: String,
-  },
   driver: {
-    type: Map,
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
   },
   mode: {
     type: String,
@@ -31,49 +30,35 @@ const DeliveryDetails = mongoose.Schema({
   },
   pickUpNumber: {
     type: String,
+    required: true,
   },
   dropOffNumber: {
     type: String,
+    required: true,
   },
   dateCreated: {
     type: Date,
     default: Date.now,
   },
-  note: {
-    type: String,
-  },
-  from: {
-    type: Map,
-  },
-  to: {
-    type: Map,
-  },
+  note: String,
+  from: { type: Map, required: true },
+  to: { type: Map, required: true },
   review: {
-    type: String,
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Reviews",
   },
-  driverComment: {
-    type: Array,
-  },
+  driverComment: Array,
   payment: {
-    type: String,
-    enum: ["Online", "Transfer", "Cash"],
-    default: "Cash",
+    type: Map,
   },
-  payer: {
-    type: String,
-    enum: ["Sender", "Receiver"],
-    required: true,
-  },
+  paid: {},
   track: {
     type: Array,
     default: [{ action: "Created", timestamp: new Date().toISOString() }],
   },
-  schedule: {
-    type: Map,
-  },
-  paymentTransactions: {
-    type: Array,
-  },
+  schedule: Map,
+  paymentTransactions: Array,
+  coupons: Array,
 });
 
 module.exports = mongoose.model("Delivery", DeliveryDetails);

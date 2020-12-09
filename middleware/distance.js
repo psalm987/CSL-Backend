@@ -42,12 +42,15 @@ const googleMatrixAPI = {
 };
 
 const calcPrice = async (distance, mode) => {
+  if (distance > 30) {
+    return 3300;
+  }
   const list = await Prices.find({ mode }).sort({ dateUpdated: -1 });
   const priceList = list[0].priceList.sort((a, b) => a.distance - b.distance);
-  console.log(priceList);
+  console.log(distance);
   const array = priceList.filter((price) => price.distance >= distance);
   console.log(array);
   const price = array[0].price;
-  console.log(price);
+  console.log("distance mode", distance, mode);
   return price;
 };

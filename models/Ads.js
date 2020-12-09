@@ -17,7 +17,8 @@ const Ads = mongoose.Schema({
     default: Date.now,
   },
   uploadedBy: {
-    type: String,
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
   },
   expires: {
     type: Date,

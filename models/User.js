@@ -37,8 +37,19 @@ const UserSchema = mongoose.Schema({
     type: Boolean,
     default: true,
   },
+  birthday: {
+    type: Date,
+  },
   pushtoken: String,
   socketID: String,
+  // staff properties
+  staffID: {
+    type: String,
+  },
+  photoUrl: {
+    type: String,
+  },
+  banned: Boolean,
 });
 
 module.exports = mongoose.model("User", UserSchema);

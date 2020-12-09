@@ -6,11 +6,11 @@ const jwt = require("jsonwebtoken");
 const auth = require("../middleware/auth");
 
 const User = require("../models/User");
-const ClientDetails = require("../models/ClientDetails");
-const DriverDetails = require("../models/DriverDetails");
 const Delivery = require("../models/Delivery");
 const createNotification = require("../middleware/createNotification");
 const Ads = require("../models/Ads");
+const Coupons = require("../models/Coupons");
+const { Types } = require("mongoose");
 
 /**
  * @route       POST api/users
@@ -58,31 +58,22 @@ router.post(
       user.password = await bcrypt.hash(password, salt);
       await user.save();
 
-      // handle various roles
-      user = await User.findOne({ email });
-      const details = new ClientDetails({
-        userID: user.id,
-        birthday,
-      });
-
-      await details.save();
-
-      const returnUser = { name, phone, email, birthday };
+      const returnUser = { id: user._id, name, phone, email, birthday };
       // respond with payload
       const payload = {
         user: {
-          id: user.id,
+          id: user._id,
           role: user.role,
         },
       };
       jwt.sign(payload, process.env.JWT_SECRET, async (err, token) => {
         if (err) throw err;
         await createNotification({
-          userID: user.id,
+          userID: user._id,
           title: "New Account",
           details: `Welcome ${user.name}, your account has been created successfully`,
           type: "success",
-          link: "account",
+          link: "profile",
         });
         res
           .status(200)
@@ -98,50 +89,6 @@ router.post(
 );
 
 /**
- * @route       GET api/users/
- * @description Retrieve all Users Information
- * @access      Private
- * */
-
-router.get("/", auth, async (req, res) => {
-  try {
-    if (req.user === "admin" || req.user === "superAdmin") {
-      const allUsers = await User.find().select("-passwordHash");
-      const drivers = allUsers.filter((user) => {
-        user.role === "driver";
-      });
-      const clients = allUsers.filter((user) => {
-        user.role === "client";
-      });
-      const deliveries = await Delivery.find();
-      res.status(200).json({ allUsers, drivers, clients, deliveries });
-      return;
-    } else {
-      let details;
-      const user = await User.findById(req.user.id).select("-passwordHash");
-      switch (req.user.role) {
-        case "client":
-          details = await ClientDetails.findOne({ userID: req.user.id });
-          history = await Delivery.find({ clientID: req.user.id });
-          break;
-        case "driver":
-          details = await DriverDetails.findOne({ userID: req.user.id });
-          history = await Delivery.find({ driverID: req.user.id });
-          break;
-        default:
-          break;
-      }
-      res.status(200).json({ user, details, history });
-      return;
-    }
-  } catch (err) {
-    console.log(err);
-    res.status(500).json({ msg: "Server Error" });
-    return;
-  }
-});
-
-/**
  * @route       GET api/users/ads
  * @description Retrieve all Ads
  * @access      Public
@@ -151,6 +98,44 @@ router.get("/ads", async (req, res) => {
   try {
     const ads = await Ads.find({ valid: true }).sort("-dateUploaded");
     res.status(200).json({ ads });
+    return;
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ msg: "Server Error" });
+    return;
+  }
+});
+
+/**
+ * @route       GET api/users/coupons
+ * @description Retrieve all valid Coupons
+ * @access      Public
+ * */
+
+router.get("/coupons", async (req, res) => {
+  try {
+    let coupons = [];
+    switch (req.body.role) {
+      case "admin":
+        coupons = await Coupons.find({
+          usages: { $ne: 0 },
+          expires: { $gt: new Date() },
+        })
+          .populate("client", "name _id phone email")
+          .populate("cretedBy", "name _id phone email");
+
+        break;
+      case "client":
+        coupons = await Coupons.find({
+          _id: Types.ObjectId(req.user.id),
+          usages: { $ne: 0 },
+          expires: { $gt: new Date() },
+        });
+        break;
+      default:
+        break;
+    }
+    res.status(200).json({ coupons });
     return;
   } catch (err) {
     console.log(err);

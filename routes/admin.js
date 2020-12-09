@@ -7,12 +7,14 @@ const auth = require("../middleware/auth");
 const { socket } = require("../config/socket");
 
 const User = require("../models/User");
-const DriverDetails = require("../models/DriverDetails");
 const Delivery = require("../models/Delivery");
 
 const createNotification = require("../middleware/createNotification");
 const Prices = require("../models/Prices");
 const Ads = require("../models/Ads");
+const Coupons = require("../models/Coupons");
+const getPerformance = require("../middleware/getPerformance");
+const { Types } = require("mongoose");
 
 const SECRET = process.env.ADMIN_SECRET;
 
@@ -55,7 +57,7 @@ router.post("/", async (req, res) => {
     jwt.sign(payload, process.env.JWT_SECRET, (err, token) => {
       if (err) throw err;
       createNotification({
-        userId: user.id,
+        userID: user.id,
         title: "Account Created",
         details:
           "Your account has been created successfully, you can now login as an administrator",
@@ -79,19 +81,33 @@ router.post("/", async (req, res) => {
 });
 
 /**
- * @route       POST api/admin/drivers
- * @description Edit driver details
+ * @route       POST api/admin/coupon
+ * @description Create a discount coupon
  * @access      Private
  * */
 
-router.post("/drivers", auth, async (req, res) => {
-  if (req.user.role !== "admin") {
-    res.status(400).json({ msg: "No authorisation" });
-    return;
-  }
+router.get("/coupon", auth, async (req, res) => {
   try {
-    await DriverDetails.findByIdAndUpdate(req.body.id, { ...req.body });
-    res.status(200).json({ msg: "Driver updated successfully" });
+    if (req.user.role !== "admin") {
+      res.status(400).json({ msg: "Not authorized" });
+      return;
+    }
+    const { type, usages, infinite, value, client, expires } = req.body;
+    if (!usages && !infinte) {
+      res
+        .status(400)
+        .json({ msg: "Specify the number of usages for this cooupon" });
+      return;
+    }
+    let use = infinite ? -1 : usages;
+    await new Coupons({
+      type,
+      value,
+      client,
+      expires,
+      usages: use,
+      createdBy: req.user.id,
+    }).save();
   } catch (err) {
     console.log(err);
     res.status(500).json({ msg: "Server Error" });
@@ -100,21 +116,138 @@ router.post("/drivers", auth, async (req, res) => {
 });
 
 /**
- * @route       POST api/admin/drivers/approve/:id
- * @description Approve a driver details
+ * @route       GET api/admin/performance
+ * @description Get sales performance
  * @access      Private
  * */
 
-router.post("/drivers/approve/:id", auth, async (req, res) => {
+const match = (prop, more, time) => {
+  return {
+    $match: {
+      [prop]: { $gte: time },
+      ...(more || {}),
+    },
+  };
+};
+
+function getMonday() {
+  var d = new Date();
+  var day = d.getDay();
+  var diff = d.getDate() - day + (day == 0 ? -6 : 1); // adjust when day is sunday
+  console.log(day, diff);
+  return new Date(d.setDate(diff));
+}
+function getDay() {
+  return new Date(new Date().setHours(0, 0, 0, 0));
+}
+function getMonth() {
+  return new Date(new Date(new Date().setDate(1)).setHours(0, 0, 0, 0));
+}
+function getYear() {
+  return new Date(
+    new Date(new Date(new Date().setMonth(0)).setDate(1)).setHours(0, 0, 0, 0)
+  );
+}
+
+const dayMatch = (prop, more) => match(prop, more, getDay());
+const monthMatch = (prop, more) => match(prop, more, getMonth());
+const weekMatch = (prop, more) => match(prop, more, getMonday(new Date()));
+const yearMatch = (prop, more) => match(prop, more, getYear());
+const allMatch = (prop, more) => match(prop, more, new Date(0));
+
+const getAllPerformance = async () => {
+  const delivery = async (timeMatch) =>
+    await Delivery.aggregate([
+      timeMatch("dateCreated"),
+      {
+        $group: {
+          _id: "$status",
+          total: { $sum: 1 },
+          revenue: { $sum: { $toInt: "$price" } },
+        },
+      },
+    ]);
+
+  const monthlyDelivery = await Delivery.aggregate([
+    {
+      $match: {
+        dateCreated: { $gte: getYear() },
+      },
+    },
+    {
+      $group: {
+        _id: {
+          status: "$status",
+          month: { $month: "$dateCreated" },
+        },
+        total: { $sum: 1 },
+        revenue: { $sum: { $toInt: "$price" } },
+      },
+    },
+  ]);
+  const dailyDelivery = await Delivery.aggregate([
+    {
+      $match: {
+        dateCreated: { $gte: getMonth() },
+      },
+    },
+    {
+      $group: {
+        _id: {
+          status: "$status",
+          day: { $dayOfWeek: "$dateCreated" },
+        },
+        total: { $sum: 1 },
+        revenue: { $sum: { $toInt: "$price" } },
+      },
+    },
+  ]);
+
+  const dayDelivery = await delivery(dayMatch);
+  const monthDelivery = await delivery(monthMatch);
+  const weekDelivery = await delivery(weekMatch);
+  const yearDelivery = await delivery(yearMatch);
+  const allDelivery = await delivery(allMatch);
+
+  return {
+    day: dayDelivery,
+    month: monthDelivery,
+    monthly: monthlyDelivery,
+    weekly: dailyDelivery,
+    week: weekDelivery,
+    year: yearDelivery,
+    all: allDelivery,
+  };
+};
+
+router.get("/performance", auth, async (req, res) => {
   try {
     if (req.user.role !== "admin") {
       res.status(400).json({ msg: "Not authorised" });
       return;
     }
-    await DriverDetails.findOneAndUpdate(
-      { userID: req.params.id },
-      { valid: true }
-    );
+    res.status(200).json(await getAllPerformance());
+    return;
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ msg: "Server Error" });
+    return;
+  }
+});
+
+/**
+ * @route       POST api/admin/user/approve/:id
+ * @description Approve a user
+ * @access      Private
+ * */
+
+router.post("/user/approve/:id", auth, async (req, res) => {
+  try {
+    if (req.user.role !== "admin" && req.user.role !== "superAdmin") {
+      res.status(400).json({ msg: "Not authorised" });
+      return;
+    }
+    await User.findByIdAndUpdate(req.params.id, { valid: true });
     await createNotification({
       userID: req.params.id,
       title: "Account approved",
@@ -133,21 +266,18 @@ router.post("/drivers/approve/:id", auth, async (req, res) => {
 });
 
 /**
- * @route       POST api/admin/drivers/ban/:id
- * @description Ban a driver
+ * @route       POST api/admin/user/ban/:id
+ * @description Ban a user
  * @access      Private
  * */
 
-router.post("/drivers/ban/:id", auth, async (req, res) => {
+router.post("/user/ban/:id", auth, async (req, res) => {
   try {
     if (req.user.role !== "admin") {
       res.status(400).json({ msg: "Not authorised" });
       return;
     }
-    await DriverDetails.findOneAndUpdate(
-      { userID: req.params.id },
-      { valid: false }
-    );
+    await User.findOneAndUpdate(req.params.id, { valid: false });
     await createNotification({
       userID: req.params.id,
       title: "Account blacklisted",
@@ -177,9 +307,62 @@ router.get("/drivers", auth, async (req, res) => {
     return;
   }
   try {
-    const drivers = await User.find({ role: "driver" });
-    const details = await DriverDetails.find();
-    res.status(200).json({ drivers, details });
+    const drivers = await User.find({ role: "driver" })
+      .sort("-dateCreated")
+      .select("name staffID phone email photoUrl valid banned");
+    res.status(200).json(drivers);
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ msg: "Server Error" });
+    return;
+  }
+});
+
+/**
+ * @route       GET api/admin/driver/:id
+ * @description Retrieve  driver details
+ * @access      Private
+ * */
+
+router.get("/driver/:id", auth, async (req, res) => {
+  if (req.user.role !== "admin") {
+    res.status(400).json({ msg: "No authorisation" });
+    return;
+  }
+  try {
+    const driver = await User.findById(req.params.id).select(
+      "name staffID phone email photoUrl valid banned"
+    );
+    if (!driver) {
+      res.status(404).json({ msg: "No driver found" });
+      return;
+    }
+    const performance = await getPerformance(driver.id);
+    res.status(200).json({ ...driver.toJSON(), performance });
+    return;
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ msg: "Server Error" });
+    return;
+  }
+});
+
+/**
+ * @route       GET api/admin/users
+ * @description Retrieve all user details
+ * @access      Private
+ * */
+
+router.get("/users", auth, async (req, res) => {
+  if (req.user.role !== "admin") {
+    res.status(400).json({ msg: "No authorisation" });
+    return;
+  }
+  try {
+    const users = await User.find({ role: "client" })
+      .sort("-dateCreated")
+      .select("name phone email valid banned");
+    res.status(200).json(users);
   } catch (err) {
     console.log(err);
     res.status(500).json({ msg: "Server Error" });
@@ -196,39 +379,36 @@ router.get("/drivers", auth, async (req, res) => {
 router.post("/delivery/assign", auth, async (req, res) => {
   try {
     if (req.user.role !== "admin") {
+      console.log("Not an admin");
       res.status(400).json({ msg: "No authorisation" });
       return;
     }
     const { id, driverID, reassign } = req.body;
     const delivery = await Delivery.findById(id);
     const driverAccount = await User.findById(driverID);
-    const details = await DriverDetails.findOne({ userID: driverID });
     if (!delivery) {
+      console.log("Not a valid Delivery");
       res.status(400).json({ msg: "Enter valid Delivery" });
       return;
     }
     if (!["Processing", "Pending"].includes(delivery.status)) {
+      console.log("Delivery cannot be re-assigned");
       res.status(400).json({ msg: "Delivery cannot be re-assigned" });
       return;
     }
-    if (!details || !details.valid) {
+    if (!driverAccount || driverAccount.role !== "driver") {
+      console.log("Driver not valid", driverAccount, " _id", driverID);
       res.status(400).json({ msg: "Driver not valid" });
       return;
     }
     if (delivery.driver && !reassign) {
+      console.log("Set reassign to true");
       res.status(400).json({ msg: "Set reassign to true" });
       return;
     }
     let DeliveryObj = {};
     DeliveryObj.status = "Processing";
-    DeliveryObj.driverID = driverID;
-    DeliveryObj.driver = {
-      id: driverID,
-      name: driverAccount.name,
-      phone: driverAccount.phone,
-      email: driverAccount.email,
-      photoUrl: details.photoUrl,
-    };
+    DeliveryObj.driver = driverID;
     DeliveryObj.track = [
       ...delivery.track,
       {
@@ -240,23 +420,48 @@ router.post("/delivery/assign", auth, async (req, res) => {
     ];
     await delivery.updateOne(DeliveryObj);
     await createNotification({
-      userID: delivery.clientID,
+      userID: delivery.client,
       title: "Rider selected",
       details: `Your delivery request was just assigned to ${driverAccount.name}`,
       type: "success",
       link: "order",
-      payloadID: delivery._id,
+      payload: delivery._id,
     });
     await createNotification({
-      userID: delivery.driverID,
+      userID: delivery.driver,
       title: "New Delivery",
       details: `A delivery request was just assigned to you.`,
       type: "success",
       link: "order",
-      payloadID: delivery._id,
+      payload: delivery._id,
     });
     res.status(200).json({ msg: "Delivery assigned successfully" });
     return;
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ msg: "Server Error" });
+    return;
+  }
+});
+
+/**
+ * @route       GET api/admin/deliveries
+ * @description Get all deliveries
+ * @access      Private
+ * */
+
+router.get("/deliveries", auth, async (req, res) => {
+  const status = req.params.status;
+  try {
+    if (req.user.role !== "admin") {
+      res.status(400).json({ msg: "No authorisation" });
+      return;
+    }
+    const deliveries = await Delivery.find()
+      .select("dateCreated client from to distance mode status _id")
+      .sort("-dateCreated")
+      .populate("client", "name -_id");
+    res.status(200).json(deliveries);
   } catch (err) {
     console.log(err);
     res.status(500).json({ msg: "Server Error" });
@@ -335,6 +540,9 @@ router.post("/ads", auth, async (req, res) => {
 router.post("/multi/ads", auth, async (req, res) => {
   try {
     const { adlist } = req.body;
+    adlist.map((ad) => {
+      return { ...ad, uploadedBy: req.user.id };
+    });
     await Ads.create(adlist);
     createNotification({
       userID: req.user.id,
@@ -345,6 +553,48 @@ router.post("/multi/ads", auth, async (req, res) => {
     socket && socket.broadcast.emit("ads");
     res.status(200).json({ msg: "Update successful" });
     return;
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ msg: "Server Error" });
+    return;
+  }
+});
+
+/**
+ * @route       POST api/admin/price_matrix
+ * @description Create a multiple ads
+ * @access      Private
+ * */
+
+router.get("/price_matrix", auth, async (req, res) => {
+  try {
+    const Motorcycle = await Prices.findOne(
+      { mode: "Motorcycle" },
+      {},
+      { sort: { dateUpdated: -1 } }
+    );
+    const Car = await Prices.findOne(
+      { mode: "Car" },
+      {},
+      { sort: { dateUpdated: -1 } }
+    );
+    const Minivan = await Prices.findOne(
+      { mode: "Mini Van" },
+      {},
+      { sort: { dateUpdated: -1 } }
+    );
+
+    let car, motorcycle, minivan;
+
+    if (Motorcycle) motorcycle = Motorcycle.toJSON();
+    if (Car) car = Car.toJSON();
+    if (Minivan) minivan = Minivan.toJSON();
+
+    res.status(200).json({
+      motorcycle,
+      car,
+      minivan,
+    });
   } catch (err) {
     console.log(err);
     res.status(500).json({ msg: "Server Error" });

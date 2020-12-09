@@ -1,16 +1,18 @@
 const mongoose = require("mongoose");
 
 const Reviews = mongoose.Schema({
-  driverID: {
-    type: String,
+  driver: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+  },
+  client: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
     required: true,
   },
-  clientID: {
-    type: String,
-    required: true,
-  },
-  deliveryID: {
-    type: String,
+  delivery: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Delivery",
     required: true,
   },
   rating: {

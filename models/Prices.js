@@ -15,7 +15,8 @@ const PricesDetails = mongoose.Schema({
     default: Date.now,
   },
   updatedBy: {
-    type: String,
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
     required: true,
   },
 });

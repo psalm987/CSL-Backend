@@ -5,6 +5,7 @@ const auth = require("../middleware/auth");
 const Notifications = require("../models/Notifications");
 const User = require("../models/User");
 const createNotification = require("../middleware/createNotification");
+const { Types } = require("mongoose");
 
 /**
  * @route       GET api/notifications
@@ -15,12 +16,12 @@ const createNotification = require("../middleware/createNotification");
 router.get("/", auth, async (req, res) => {
   try {
     const notifications = await Notifications.find({
-      userID: req.user.id,
+      user: Types.ObjectId(req.user.id),
     })
       .limit(100)
       .sort("-dateCreated");
     await Notifications.updateMany(
-      { userID: req.user.id, delivered: false },
+      { user: Types.ObjectId(req.user.id), delivered: false },
       { delivered: true }
     );
     res.status(200).json(notifications);
@@ -32,12 +33,12 @@ router.get("/", auth, async (req, res) => {
 });
 
 /**
- * @route       POST api/notifications/read/all
+ * @route       POST api/notifications/read_all
  * @description Read all notifications
  * @access      Private
  * */
 
-router.post("/read/all", auth, async (req, res) => {
+router.post("/read_all", auth, async (req, res) => {
   try {
     await Notifications.updateMany(
       { userID: req.user.id, read: false },
@@ -50,6 +51,7 @@ router.post("/read/all", auth, async (req, res) => {
       userID: req.user.id,
     }).sort("-dateCreated");
     res.status(200).json(notifications);
+    return;
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: "Server Error" });
@@ -83,6 +85,10 @@ router.post("/pushtoken", auth, async (req, res) => {
 
 router.post("/socket", auth, async (req, res) => {
   try {
+    if (!req.body.id) {
+      res.status(400).json({ msg: "No socket ID" });
+      return;
+    }
     await User.findByIdAndUpdate(req.user.id, { socketID: req.body.id });
     res.status(200).json({ msg: "Scket ID stored successfully" });
     return;
@@ -102,7 +108,7 @@ router.post("/socket", auth, async (req, res) => {
 router.post("/read/:id", auth, async (req, res) => {
   try {
     const id = req.params.id;
-    await Notifications.findByIdAndUpdate(id, { read: true });
+    await Notifications.findByIdAndUpdate(id, { read: true, delivered: true });
     const notifications = await Notifications.find({
       userID: req.user.id,
     }).sort("-dateCreated");
@@ -128,13 +134,43 @@ router.post("/mock", auth, async (req, res) => {
       res.status(400).json("Bad request");
       return;
     }
-    await createNotification({ userID, title, details, type, link, payload });
+    await createNotification({
+      userID,
+      title,
+      details,
+      type,
+      link,
+      payload,
+    });
     res.status(200).json("Notification sent");
     return;
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: "Server Error" });
     return;
+  }
+});
+
+/**
+ * @route       POST api/notifications/ping/:id
+ * @description Read notification
+ * @access      Private
+ * */
+
+const { getSocket } = require("../config/socket");
+
+router.post("/ping/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const user = await User.findById(id);
+    const socket = user.socketID;
+    const { io } = getSocket();
+    console.log(req.body.msg, socket);
+    io.to(socket).emit(req.body.msg);
+    res.status(200).end();
+  } catch (err) {
+    console.log(err);
+    res.status(500).end();
   }
 });
 

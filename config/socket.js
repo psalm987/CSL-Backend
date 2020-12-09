@@ -1,16 +1,11 @@
-let socket;
 let io;
 
-const setSocket = (socketObj, ioObj) => {
-  socket = socketObj;
+const setSocket = (ioObj) => {
   io = ioObj;
 };
 
 const getSocket = () => {
-  return {
-    socket,
-    io,
-  };
+  return io;
 };
 
 module.exports = { setSocket, getSocket };
