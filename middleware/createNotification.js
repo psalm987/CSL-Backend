@@ -38,7 +38,7 @@ const createNotification = async ({
       }));
     await notifications.save();
     if (userObj.socketID) {
-      const { io } = getSocket();
+      const io = getSocket();
       io.to(userObj.socketID).emit("NewNotification");
       console.log("sent to io...", io.id, " with socket id ", userObj.socketID);
     }
