@@ -433,7 +433,7 @@ router.post("/delivery/assign", auth, async (req, res) => {
       payload: delivery._id,
     });
     await createNotification({
-      userID: delivery.driver,
+      userID: driverID,
       title: "New Delivery",
       details: `A delivery request was just assigned to you.`,
       type: "success",
