@@ -40,7 +40,7 @@ const createNotification = async ({
     if (userObj.socketID) {
       const io = getSocket();
       io.to(userObj.socketID).emit("NewNotification");
-      console.log("sent to io...", io.id, " with socket id ", userObj.socketID);
+      console.log("sent to io...", io, " with socket id ", userObj.socketID);
     }
   } catch (err) {
     console.log(err);
