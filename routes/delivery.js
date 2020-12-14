@@ -232,7 +232,7 @@ router.get("/", auth, async (req, res) => {
             .limit(100);
         case "driver":
           return await Delivery.find({ driver: Types.ObjectId(req.user.id) })
-            .select("status price dateCreated from to schedule mode")
+            .select("status price distance dateCreated from to schedule mode")
             .sort("-dateCreated")
             .limit(100);
         default:
