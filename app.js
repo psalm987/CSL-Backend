@@ -7,7 +7,7 @@ var logger = require("morgan");
 require("dotenv").config();
 
 // Connect to the database
-const { connectDB } = require("./config/db");
+const connectDB = require("./config/db");
 connectDB();
 
 // Create routes variables
@@ -22,8 +22,8 @@ var adminRouter = require("./routes/admin");
 var app = express();
 
 // view engine setup
-app.set("views", path.join(__dirname, "views"));
-app.set("view engine", "jade");
+// app.set("views", path.join(__dirname, "views"));
+// app.set("view engine", "jade");
 
 app.use(cors());
 app.use(logger("dev"));
@@ -40,10 +40,10 @@ app.use("/api/notifications", notificationsRouter);
 app.use("/api/drivers", driversRouter);
 app.use("/api/admin", adminRouter);
 
-app.use(express.static(path.join(__dirname, "build")));
-app.get("/*", function (req, res) {
-  res.sendFile(path.join(__dirname, "build", "index.html"));
-});
+// app.use(express.static(path.join(__dirname, "build")));
+// app.get("/*", function (req, res) {
+//   res.sendFile(path.join(__dirname, "build", "index.html"));
+// });
 
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {

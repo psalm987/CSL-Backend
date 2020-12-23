@@ -23,6 +23,7 @@ const {
 const mongoose = require("mongoose");
 const { getSocket } = require("../config/socket");
 const getPerformance = require("../middleware/getPerformance");
+const driversDB = require("../config/driversDB");
 
 /**
  * @route       GET api/drivers/performance
@@ -396,8 +397,6 @@ router.post("/delivered/:id", auth, async (req, res) => {
  * @access      Private
  * */
 
-var drivers = {};
-
 router.post("/location", auth, async (req, res) => {
   if (req.user.role !== "driver") {
     console.log(req.user);
@@ -405,7 +404,7 @@ router.post("/location", auth, async (req, res) => {
     return;
   }
   const { latitude, longitude, heading } = req.body;
-  if (!(latitude && longitude && heading !== null)) {
+  if (!(latitude && longitude && heading)) {
     res.status(400).json({ msg: "Bad request" });
     return;
   }
@@ -414,7 +413,7 @@ router.post("/location", auth, async (req, res) => {
       "name phone photoUrl"
     );
     const timestamp = new Date();
-    drivers[req.user.id] = {
+    driversDB.push(`/${req.user.id}`, {
       latitude,
       longitude,
       heading,
@@ -422,12 +421,10 @@ router.post("/location", auth, async (req, res) => {
       phone,
       photoUrl,
       timestamp,
-    };
-    const io = getSocket();
-    io.emit("drivers", drivers);
-    io.on("getDrivers", () => {
-      io.emit("drivers", drivers);
     });
+    const io = getSocket();
+    io.emit("drivers", driversDB.getData("/"));
+
     res.status(200).json({ msg: "Location updated" });
     return;
   } catch (err) {

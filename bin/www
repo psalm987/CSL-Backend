@@ -11,6 +11,7 @@ const socketIo = require("socket.io");
 const { setSocket } = require("../config/socket");
 const { truncate } = require("fs");
 const User = require("../models/User");
+const driversDB = require("../config/driversDB");
 
 /**
  * Get port from environment and store in Express.
@@ -37,7 +38,7 @@ var io = socketIo(server);
 
 let modes = ["Motorcycle"];
 
-io.on("connection", (socket) => {
+io.on("connection", async (socket) => {
   console.log(
     "someone connected...",
     socket.id,
@@ -45,7 +46,10 @@ io.on("connection", (socket) => {
   );
   setSocket(io);
   io.emit("modes", modes);
-
+  socket.on("getDrivers", () => {
+    io.emit("drivers", driversDB.getData("/"));
+  });
+  io.emit("drivers", driversDB.getData("/"));
   socket.on("disconnect", () => {
     console.log("someone disconnected...", new Date().toLocaleTimeString());
   });

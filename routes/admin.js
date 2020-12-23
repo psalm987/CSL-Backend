@@ -86,7 +86,7 @@ router.post("/", async (req, res) => {
  * @access      Private
  * */
 
-router.get("/coupon", auth, async (req, res) => {
+router.post("/coupon", auth, async (req, res) => {
   try {
     if (req.user.role !== "admin") {
       res.status(400).json({ msg: "Not authorized" });
@@ -108,6 +108,56 @@ router.get("/coupon", auth, async (req, res) => {
       usages: use,
       createdBy: req.user.id,
     }).save();
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ msg: "Server Error" });
+    return;
+  }
+});
+
+/**
+ * @route       GET api/admin/coupons
+ * @description Retreive all discount coupons
+ * @access      Private
+ * */
+router.get("/coupons", auth, async (req, res) => {
+  try {
+    if (req.user.role !== "admin") {
+      res.status(400).json({ msg: "Not authorized" });
+      return;
+    }
+    const valid = await Coupons.find({
+      valid: true,
+      usages: { $ne: 0 },
+      expires: { $gte: new Date() },
+    })
+      .populate("client", "name _id")
+      .populate("createdBy", "name _id");
+    const invalid = await Coupons.find({
+      $or: [{ valid: false }, { usages: 0 }, { expires: { $lt: new Date() } }],
+    })
+      .populate("client", "name _id")
+      .populate("createdBy", "name _id");
+    res.status(200).json({ valid, invalid });
+    return;
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ msg: "Server Error" });
+    return;
+  }
+});
+
+/**
+ * @route       POST api/admin/coupons/cancel/:id
+ * @description Retreive all discount coupons
+ * @access      Private
+ * */
+router.post("/coupons/cancel/:id", auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await Coupons.findByIdAndUpdate(id, { valid: false });
+    res.status(200).json({ msg: "Coupon cancelled successfully" });
+    return;
   } catch (err) {
     console.log(err);
     res.status(500).json({ msg: "Server Error" });
@@ -450,19 +500,100 @@ router.post("/delivery/assign", auth, async (req, res) => {
 });
 
 /**
+ * @route       POST api/admin/delivery/status
+ * @description Set a delivery status
+ * @access      Private
+ * */
+
+router.post("/delivery/status", auth, async (req, res) => {
+  try {
+    if (req.user.role !== "admin") {
+      console.log("Not an admin");
+      res.status(400).json({ msg: "No authorisation" });
+      return;
+    }
+    const { status, id } = req.body;
+    const delivery = await Delivery.findByIdAndUpdate(id, {
+      status,
+      $push: {
+        track: {
+          action: `Status changed to ${status}`,
+          timestamp: new Date().toISOString(),
+        },
+      },
+    });
+    if (!delivery) {
+      console.log("Not found", delivery);
+      res.status(400).json({ msg: "Not found" });
+      return;
+    }
+    await createNotification({
+      userID: delivery.client.toString(),
+      title: "Status Change",
+      details: `The status of your delivery has been changed`,
+      type: "success",
+      link: "order",
+      payload: delivery._id,
+    });
+    delivery.driver &&
+      (await createNotification({
+        userID: delivery.driver.toString(),
+        title: "Status Change",
+        details: `The status of a delivery has been changed`,
+        type: "success",
+        link: "order",
+        payload: delivery._id,
+      }));
+    res.status(200).json({ msg: "Status Changed successfully" });
+    return;
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ msg: "Server Error" });
+    return;
+  }
+});
+
+/**
  * @route       GET api/admin/deliveries
  * @description Get all deliveries
  * @access      Private
  * */
 
 router.get("/deliveries", auth, async (req, res) => {
-  const status = req.params.status;
   try {
     if (req.user.role !== "admin") {
       res.status(400).json({ msg: "No authorisation" });
       return;
     }
     const deliveries = await Delivery.find()
+      .select("dateCreated client from to distance mode status _id")
+      .sort("-dateCreated")
+      .populate("client", "name -_id");
+    res.status(200).json(deliveries);
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ msg: "Server Error" });
+    return;
+  }
+});
+
+/**
+ * @route       GET api/admin/driver/deliveries/:id
+ * @description Get all deliveries
+ * @access      Private
+ * */
+
+router.get("/driver/deliveries/:id", auth, async (req, res) => {
+  try {
+    if (req.user.role !== "admin") {
+      res.status(400).json({ msg: "No authorisation" });
+      return;
+    }
+    if (!req.params.id) {
+      res.status(400).json({ msg: "No delivery id" });
+      return;
+    }
+    const deliveries = await Delivery.find({ driver: req.params.id })
       .select("dateCreated client from to distance mode status _id")
       .sort("-dateCreated")
       .populate("client", "name -_id");
@@ -504,6 +635,26 @@ router.post("/price", auth, async (req, res) => {
 });
 
 /**
+ * @route       GET api/admin/ads
+ * @description Retreive all ads
+ * @access      Private
+ * */
+router.get("/ads", auth, async (req, res) => {
+  try {
+    if (req.user.role !== "admin") {
+      res.status(400).json({ msg: "No authorisation" });
+      return;
+    }
+    const ads = await Ads.find().sort("-dateUploaded");
+    res.status(200).json(ads);
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ msg: "Server Error" });
+    return;
+  }
+});
+
+/**
  * @route       POST api/admin/ads
  * @description Create a single ad
  * @access      Private
@@ -511,7 +662,7 @@ router.post("/price", auth, async (req, res) => {
 
 router.post("/ads", auth, async (req, res) => {
   try {
-    const { name, image, link, expires } = req.body;
+    const { title, image, link, expires } = req.body;
     const ad = new Ads({
       title,
       image,
@@ -528,6 +679,27 @@ router.post("/ads", auth, async (req, res) => {
     });
     socket && socket.broadcast.emit("ads");
     res.status(200).json({ msg: "Update successful" });
+    return;
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ msg: "Server Error" });
+    return;
+  }
+});
+
+/**
+ * @route       POST api/admin/ads/valid/:id
+ * @description Disable/Enable a single ad
+ * @access      Private
+ * */
+
+router.post("/ads/valid/:id", auth, async (req, res) => {
+  try {
+    const ad = await Ads.findById(req.params.id);
+    const { valid } = ad;
+    await ad.update({ valid: !valid });
+    socket && socket.broadcast.emit("ads");
+    res.status(200).json({ msg: "Update successful", valid: !valid });
     return;
   } catch (err) {
     console.log(err);
@@ -566,8 +738,8 @@ router.post("/multi/ads", auth, async (req, res) => {
 });
 
 /**
- * @route       POST api/admin/price_matrix
- * @description Create a multiple ads
+ * @route       GET api/admin/price_matrix
+ * @description Retrieve price matrix
  * @access      Private
  * */
 

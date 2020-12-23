@@ -96,7 +96,10 @@ router.post(
 
 router.get("/ads", async (req, res) => {
   try {
-    const ads = await Ads.find({ valid: true }).sort("-dateUploaded");
+    const ads = await Ads.find({
+      valid: true,
+      $or: [{ expires: null }, { expires: { $gt: new Date() } }],
+    }).sort("-dateUploaded");
     res.status(200).json({ ads });
     return;
   } catch (err) {

@@ -45,4 +45,4 @@ const getGfs = async () => {
   return gfs;
 };
 
-module.exports = { connectDB, upload, getGfs };
+module.exports = connectDB;

@@ -62,6 +62,7 @@ router.post("/", auth, async (req, res) => {
             { client: { $ne: Types.ObjectId(req.user.id) } },
             { usages: 0 },
             { expires: { $lte: new Date() } },
+            { valid: false },
           ],
         });
         const validCoupons = await Coupons.find({
@@ -342,6 +343,7 @@ router.get("/:id", auth, async (req, res) => {
       res.status(400).json({ msg: "Not Authorised" });
       return;
     }
+    console.log(delivery);
     res.status(200).json({ ...delivery.toJSON(), rating });
     return;
   } catch (err) {
