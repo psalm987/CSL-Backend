@@ -404,7 +404,7 @@ router.post("/location", auth, async (req, res) => {
     return;
   }
   const { latitude, longitude, heading } = req.body;
-  if (!(latitude && longitude && heading)) {
+  if (!(latitude && longitude)) {
     res.status(400).json({ msg: "Bad request" });
     return;
   }
