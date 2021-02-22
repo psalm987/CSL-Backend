@@ -33,7 +33,6 @@ router.post(
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       res.status(400).json(errors.array());
-      console.log(errors.array())
       return;
     }
     // destructure inputs
@@ -44,7 +43,6 @@ router.post(
       let user = await User.findOne({ email });
       if (user) {
         res.status(400).json({ msg: "User already exists" });
-        console.log("User already exists" )
         return;
       }
 
@@ -89,6 +87,33 @@ router.post(
     }
   }
 );
+
+/**
+ * @route       GET api/users/change_password
+ * @description Change password
+ * @access      Private
+ * */
+router.get("/change_password", auth, async (req, res) => {
+  try {
+    const { old_pass, new_pass } = req.body;
+    const user = await User.findOne({ email: req.user.email });
+    const isMatch = await bcrypt.compare(old_pass, user.password);
+    if (!isMatch) {
+      res.status(400).json({ msg: "Incorrect password" });
+      return;
+    }
+    const salt = await bcrypt.genSalt(10);
+    await User.findByIdAndUpdate(user._id, {
+      password: await bcrypt.hash(new_pass, salt),
+    });
+    res.status(200).json({ msg: "Password changed successfully!" });
+    return;
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ msg: "Server Error" });
+    return;
+  }
+});
 
 /**
  * @route       GET api/users/ads
@@ -141,6 +166,35 @@ router.get("/coupons", async (req, res) => {
         break;
     }
     res.status(200).json({ coupons });
+    return;
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ msg: "Server Error" });
+    return;
+  }
+});
+
+/**
+ * @route       GET api/users/forgotpassword/:email
+ * @description Retrieve password
+ * @access      Public
+ * */
+
+router.get("/forgotpassword/:email", async (req, res) => {
+  try {
+    const { email } = req.params;
+    if (!email) {
+      res.status(404).json({ msg: "Email is required" });
+      return;
+    }
+    const user = await User.find({ email });
+    if (!user) {
+      res.status(404).json({ msg: "User account not found" });
+      return;
+    }
+    res
+      .status(200)
+      .json({ msg: "Password recovery successful, check your email inbox" });
     return;
   } catch (err) {
     console.log(err);
