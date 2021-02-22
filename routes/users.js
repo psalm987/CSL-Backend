@@ -33,6 +33,7 @@ router.post(
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       res.status(400).json(errors.array());
+      console.log(errors.array())
       return;
     }
     // destructure inputs
@@ -43,6 +44,7 @@ router.post(
       let user = await User.findOne({ email });
       if (user) {
         res.status(400).json({ msg: "User already exists" });
+        console.log("User already exists" )
         return;
       }
 
