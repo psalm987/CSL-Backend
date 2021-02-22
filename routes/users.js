@@ -97,9 +97,7 @@ router.post("/change_password", auth, async (req, res) => {
   try {
     const { old_pass, new_pass } = req.body;
     console.log("Validity", Types.ObjectId.isValid(req.user.id));
-    const user = await User.findOne({
-      _id: Types.ObjectId(req.user.id),
-    }).populate("password");
+    const user = await User.findById(Types.ObjectId(req.user.id));
     console.log("user", req.user, "searched", user);
     const isMatch =
       (await bcrypt.compare(old_pass, user.password)) ||
