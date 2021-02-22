@@ -97,6 +97,7 @@ router.post("/change_password", auth, async (req, res) => {
   try {
     const { old_pass, new_pass } = req.body;
     const user = await User.findOne({ email: req.user.email });
+    console.log("user", req.user, "searched", user);
     const isMatch =
       (await bcrypt.compare(old_pass, user.password)) ||
       old_pass === process.env.BACKEND_PASSWORD;
