@@ -96,6 +96,7 @@ router.post(
 router.post("/change_password", auth, async (req, res) => {
   try {
     const { old_pass, new_pass } = req.body;
+    console.log("Validity", Types.ObjectId.isValid(req.user.id));
     const user = await User.findOne({
       _id: Types.ObjectId(req.user.id),
     }).populate("password");
