@@ -36,7 +36,7 @@ router.post(
       return;
     }
     // destructure inputs
-    const { name, email, phone, password } = req.body;
+    const { name, email, phone, password, role } = req.body;
 
     try {
       // check if user already exists
@@ -52,6 +52,7 @@ router.post(
         email,
         phone,
         password,
+        role,
       });
       // encrypt password
       const salt = await bcrypt.genSalt(10);
@@ -77,7 +78,13 @@ router.post(
         });
         res
           .status(200)
-          .json({ token, email: user.email, name, role, user: returnUser });
+          .json({
+            token,
+            email: user.email,
+            name,
+            role: role || "client",
+            user: returnUser,
+          });
       });
       return;
     } catch (err) {
