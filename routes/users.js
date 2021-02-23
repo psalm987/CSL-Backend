@@ -58,7 +58,7 @@ router.post(
       user.password = await bcrypt.hash(password, salt);
       await user.save();
 
-      const returnUser = { id: user._id, name, phone, email, birthday };
+      const returnUser = { id: user._id, name, phone, email };
       // respond with payload
       const payload = {
         user: {
