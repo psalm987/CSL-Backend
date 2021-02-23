@@ -110,6 +110,13 @@ router.post("/change_password", auth, async (req, res) => {
     await User.findByIdAndUpdate(user._id, {
       password: await bcrypt.hash(new_pass, salt),
     });
+    await createNotification({
+      userID: req.user.id,
+      title: "Password changed",
+      details: `You have succefully changed your password.`,
+      type: "success",
+      link: "profile",
+    });
     res.status(200).json({ msg: "Password changed successfully!" });
     return;
   } catch (err) {
