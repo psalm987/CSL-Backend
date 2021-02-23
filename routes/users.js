@@ -164,7 +164,7 @@ router.get("/search/:role", async (req, res) => {
       role,
       banned: { $ne: true },
       valid: { $ne: false },
-    }).select("-password");
+    }).select("-password -pushtoken");
     res.status(200).json(users);
     return;
   } catch (err) {
