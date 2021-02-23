@@ -76,15 +76,13 @@ router.post(
           type: "success",
           link: "profile",
         });
-        res
-          .status(200)
-          .json({
-            token,
-            email: user.email,
-            name,
-            role: role || "client",
-            user: returnUser,
-          });
+        res.status(200).json({
+          token,
+          email: user.email,
+          name,
+          role: role || "client",
+          user: returnUser,
+        });
       });
       return;
     } catch (err) {
@@ -146,6 +144,28 @@ router.get("/ads", async (req, res) => {
       $or: [{ expires: null }, { expires: { $gt: new Date() } }],
     }).sort("-dateUploaded");
     res.status(200).json({ ads });
+    return;
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ msg: "Server Error" });
+    return;
+  }
+});
+
+/**
+ * @route       GET api/users/search/:role
+ * @description Search users
+ * @access      Public
+ * */
+router.get("/search/:role", async (req, res) => {
+  try {
+    const { role } = req.params;
+    const users = await User.find({
+      role,
+      banned: { $ne: true },
+      valid: { $ne: false },
+    }).select("-password");
+    res.status(200).json(users);
     return;
   } catch (err) {
     console.log(err);
