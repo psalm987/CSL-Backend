@@ -25,10 +25,6 @@ const UserSchema = mongoose.Schema({
     enum: ["client", "driver", "admin", "superAdmin"],
     default: "client",
   },
-  birthday: {
-    type: Date,
-    required: true,
-  },
   dateCreated: {
     type: Date,
     default: Date.now,

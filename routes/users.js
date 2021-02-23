@@ -36,7 +36,7 @@ router.post(
       return;
     }
     // destructure inputs
-    const { name, email, phone, password, birthday } = req.body;
+    const { name, email, phone, password } = req.body;
 
     try {
       // check if user already exists
