@@ -157,22 +157,19 @@ router.get("/ads", async (req, res) => {
  * @description Search users
  * @access      Public
  * */
-router.get("/search/:role?q=:query", async (req, res) => {
+router.get("/search/:role", async (req, res) => {
   try {
-    const { role, query } = req.params;
-    if (!(role && query)) {
-      console.log("No role and query");
-      res.status(404).json({ msg: "Please provide a row and query value" });
-    }
+    const { role } = req.params;
+    const { q } = req.query;
     const users = await User.find({
       role,
       banned: { $ne: true },
       valid: { $ne: false },
       $or: [
         {
-          name: { $regex: query, $options: "i" },
-          email: { $regex: query, $options: "i" },
-          phone: { $regex: query, $options: "i" },
+          name: { $regex: q, $options: "i" },
+          email: { $regex: q, $options: "i" },
+          phone: { $regex: q, $options: "i" },
         },
       ],
     }).select("-password -pushtoken");
