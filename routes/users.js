@@ -160,7 +160,7 @@ router.get("/ads", async (req, res) => {
 router.get("/search/:role", async (req, res) => {
   try {
     const { role } = req.params;
-    const { q } = req.query;
+    const q = req.query.q || "";
     const users = await User.find({
       role,
       banned: { $ne: true },
@@ -168,9 +168,9 @@ router.get("/search/:role", async (req, res) => {
       $or: [
         {
           name: { $regex: q, $options: "i" },
-          email: { $regex: q, $options: "i" },
-          phone: { $regex: q, $options: "i" },
         },
+        { email: { $regex: q, $options: "i" } },
+        { phone: { $regex: q, $options: "i" } },
       ],
     }).select("-password -pushtoken");
     res.status(200).json(users);
