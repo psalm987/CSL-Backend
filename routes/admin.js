@@ -4,7 +4,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const auth = require("../middleware/auth");
 
-const { socket } = require("../config/socket");
+const { socket, getSocket } = require("../config/socket");
 
 const User = require("../models/User");
 const Delivery = require("../models/Delivery");
