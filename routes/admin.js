@@ -116,6 +116,61 @@ router.post("/coupon", auth, async (req, res) => {
 });
 
 /**
+ * @route       POST api/admin/delivery
+ * @description Make a new Delivery
+ * @access      Private (Admins)
+ * */
+
+router.post("/delivery", auth, async (req, res) => {
+  // destructure inputs
+  if (req.user.role !== "admin") {
+    res.status(400).json({ msg: "Not authorized" });
+    return;
+  }
+  const {
+    from,
+    to,
+    distance,
+    mode,
+    price,
+    pickUpNumber,
+    dropOffNumber,
+    note,
+    client,
+  } = req.body;
+  try {
+    let DeliveryInfo = {};
+    if (from) DeliveryInfo.from = from;
+    if (to) DeliveryInfo.to = to;
+    if (distance) DeliveryInfo.distance = distance;
+    if (mode) DeliveryInfo.mode = mode;
+    if (price) DeliveryInfo.price = price;
+    if (pickUpNumber) DeliveryInfo.pickUpNumber = pickUpNumber;
+    if (dropOffNumber) DeliveryInfo.dropOffNumber = dropOffNumber;
+    if (note) DeliveryInfo.note = note;
+    DeliveryInfo.client = client;
+    const delivery = new Delivery(DeliveryInfo);
+    await delivery.save();
+    await createNotification({
+      userID: client,
+      title: "Delivery request Successful",
+      details: `A request for a ${mode} delivery has been made on your account. Our service agents will process your order in a few minutes.`,
+      type: "success",
+      link: "order",
+      payload: delivery._id,
+    });
+    const io = getSocket();
+    io.emit("NewDelivery");
+    res.status(200).json({ msg: "Delivery request successful" });
+    return;
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ msg: "Server Error" });
+    return;
+  }
+});
+
+/**
  * @route       GET api/admin/coupons
  * @description Retreive all discount coupons
  * @access      Private
