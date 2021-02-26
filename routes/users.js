@@ -35,8 +35,14 @@ router.post(
       res.status(400).json(errors.array());
       return;
     }
+
     // destructure inputs
-    const { name, email, phone, password, role } = req.body;
+    const { name, email, phone, password, role, secret } = req.body;
+
+    if (secret && secret !== process.env.ADMIN_SECRET) {
+      res.status(400).json({ msg: "Not authorized" });
+      return;
+    }
 
     try {
       // check if user already exists
