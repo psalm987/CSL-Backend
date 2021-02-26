@@ -107,7 +107,7 @@ router.post("/", async (req, res) => {
         title: "New Account",
         details: `Welcome ${user.name}, your account has been created successfully`,
         type: "success",
-        link: "account",
+        link: "profile",
       });
       res.status(200).json({
         token,

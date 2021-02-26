@@ -359,7 +359,7 @@ router.post("/user/approve/:id", auth, async (req, res) => {
       details:
         "Your account has been approved successfully. You may now recieve delivery requests.",
       type: "success",
-      link: "account",
+      link: "profile",
     });
     res.status(200).json({ msg: "Driver approved" });
     return;
@@ -389,7 +389,7 @@ router.post("/user/ban/:id", auth, async (req, res) => {
       details:
         "Your account has been banned! You will not receive any more delivery requests.",
       type: "error",
-      link: "account",
+      link: "profile",
     });
     res.status(200).json({ msg: "Driver Banned" });
     return;
