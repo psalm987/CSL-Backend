@@ -66,16 +66,15 @@ router.post("/", async (req, res) => {
       name,
       email,
       phone,
-      birthday,
       staffID,
       password,
       photoUrl,
+      secret,
     } = req.body;
     const UserObj = {
       name,
       email,
       phone,
-      birthday,
       role: "driver",
       photoUrl,
       staffID,
@@ -83,6 +82,10 @@ router.post("/", async (req, res) => {
     let user = await User.findOne({ email });
     if (user) {
       res.status(400).json({ msg: "User already exists" });
+      return;
+    }
+    if (secret && secret !== process.env.ADMIN_SECRET) {
+      res.status(400).json({ msg: "Not authorized" });
       return;
     }
     user = new User(UserObj);
