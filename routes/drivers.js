@@ -86,6 +86,7 @@ router.post("/", async (req, res) => {
     }
     if (secret && secret !== process.env.ADMIN_SECRET) {
       res.status(400).json({ msg: "Not authorized" });
+      console.log("Incorrect secret,", secret, process.env.ADMIN_SECRET);
       return;
     }
     user = new User(UserObj);
