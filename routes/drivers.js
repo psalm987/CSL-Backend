@@ -100,7 +100,7 @@ router.post("/", async (req, res) => {
         role: user.role,
       },
     };
-    const returnUser = { phone, birthday, photoUrl };
+    const returnUser = { phone, photoUrl };
     jwt.sign(payload, process.env.JWT_SECRET, async (err, token) => {
       if (err) throw err;
       await createNotification({
