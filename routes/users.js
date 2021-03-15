@@ -89,8 +89,8 @@ router.post(
           role: role || "client",
           user: returnUser,
         });
+        return;
       });
-      return;
     } catch (err) {
       console.log(err);
       res.status(500).json({ msg: "Server Error" });
