@@ -116,8 +116,8 @@ router.post("/", async (req, res) => {
         role: user.role,
         user: returnUser,
       });
+      return;
     });
-    return;
   } catch (err) {
     console.log(err);
     res.status(500).json({ msg: "Server Error" });
